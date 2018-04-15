@@ -274,6 +274,8 @@ public:
       if (!sharesEdit || !priceEdit)
         return;
 
+      auto feeEdit = dynamic_cast<KMyMoneyEdit*>(q->haveWidget("fee-amount"));
+      auto interestEdit = dynamic_cast<KMyMoneyEdit*>(q->haveWidget("interest-amount"));
       MyMoneyMoney price;
       if (!split.id().isEmpty())
         price = split.price().reduce();
@@ -292,6 +294,13 @@ public:
         priceEdit->setValue(price);
       } else
         priceEdit->setValue(price);
+
+      if (feeEdit) {
+	feeEdit->setPrecision(m_currency.pricePrecision());
+      }
+      if (interestEdit) {
+	interestEdit->setPrecision(m_currency.pricePrecision());
+      }
     }
   }
 
@@ -896,6 +905,7 @@ void InvestTransactionEditor::totalAmount(MyMoneyMoney& amount) const
         break;
     }
     amount += (fee * factor);
+    qDebug() << "totalAmount: fee " << fee.toDouble();
   }
 
   if (interestEdit->isVisible()) {
@@ -909,6 +919,7 @@ void InvestTransactionEditor::totalAmount(MyMoneyMoney& amount) const
         break;
     }
     amount += (interest * factor);
+    qDebug() << "totalAmount: interest " << interest.toDouble();
   }
 }
 
@@ -920,6 +931,7 @@ void InvestTransactionEditor::slotUpdateTotalAmount()
   if (total && total->isVisible()) {
     MyMoneyMoney amount;
     totalAmount(amount);
+    qDebug() << "updateTotalAmount: " << amount.toDouble();
     total->setText(amount.convert(d->m_currency.smallestAccountFraction(), d->m_security.roundingMethod())
                    .formatMoney(d->m_currency.tradingSymbol(), MyMoneyMoney::denomToPrec(d->m_currency.smallestAccountFraction())));
   }
@@ -1083,6 +1095,8 @@ bool InvestTransactionEditor::setupPrice(const MyMoneyTransaction& t, MyMoneySpl
     split.setShares(split.value());
   }
 
+  qDebug() << "Split: " << split.shares().toString();
+
   return true;
 }
 
@@ -1105,11 +1119,15 @@ bool InvestTransactionEditor::createTransaction(MyMoneyTransaction& t, const MyM
       MyMoneySecurity security = file->security(currencyId);
 
       t.setCommodity(security.tradingCurrency());
+      qDebug() << "Set commodity 1 to " << security.tradingCurrency();
     } else {
       s0.setAccountId(d->m_account.id());
       t.setCommodity(d->m_account.currencyId());
+      qDebug() << "Set commodity 2 to " << d->m_account.currencyId();
     }
   }
+
+  qDebug() << "Commodity 1 " << t.commodity();
 
   // extract price info from original transaction
   d->m_priceInfo.clear();
@@ -1128,13 +1146,18 @@ bool InvestTransactionEditor::createTransaction(MyMoneyTransaction& t, const MyM
     }
   }
 
+  qDebug() << "Commodity 2 " << t.commodity();
+
   t.removeSplits();
+
+  qDebug() << "Commodity 3 " << t.commodity();
 
   auto postDate = dynamic_cast<KMyMoneyDateInput*>(d->m_editWidgets["postdate"]);
   if (postDate && postDate->date().isValid()) {
     t.setPostDate(postDate->date());
   }
 
+  qDebug() << "Commodity 4 " << t.commodity();
   // memo and number field are special: if we have multiple transactions selected
   // and the edit field is empty, we treat it as "not modified".
   // FIXME a better approach would be to have a 'dirty' flag with the widgets
@@ -1145,6 +1168,7 @@ bool InvestTransactionEditor::createTransaction(MyMoneyTransaction& t, const MyM
     if (!isMultiSelection() || (isMultiSelection() && d->m_activity->memoChanged()))
       s0.setMemo(memo->toPlainText());
   }
+  qDebug() << "Commodity 5 " << t.commodity();
 
   MyMoneySplit assetAccountSplit;
   QList<MyMoneySplit> feeSplits;
@@ -1153,6 +1177,9 @@ bool InvestTransactionEditor::createTransaction(MyMoneyTransaction& t, const MyM
   eMyMoney::Split::InvestmentTransactionType transactionType;
 
   // extract the splits from the original transaction
+  qDebug() << "dissect: " << torig.commodity();
+  // This call to dissectTransaction returns the wrong currency (JPY), because the torig's commodity is an empty string
+  // Solution: set torig's commodity as the time it is created and ready to be submitted
   KMyMoneyUtils::dissectTransaction(torig, sorig,
                      assetAccountSplit,
                      feeSplits,
@@ -1160,6 +1187,11 @@ bool InvestTransactionEditor::createTransaction(MyMoneyTransaction& t, const MyM
                      security,
                      currency,
                      transactionType);
+
+  if (torig.commodity().isEmpty()) {
+    auto file = MyMoneyFile::instance();
+    currency = file->security(t.commodity());
+  }
 
   // check if the trading currency is the same if the security has changed
   // in case it differs, check that we have a price (request from user)
@@ -1222,9 +1254,12 @@ bool InvestTransactionEditor::createTransaction(MyMoneyTransaction& t, const MyM
 
     // assuming that all non-stock splits are monetary
     foreach (auto split, resultSplits) {
+	    // HERE! currencyFraction is 1 when it should be 100 - using fraction for yen instead of USD?
+	    qDebug() << "createTransaction: << " << split.shares().toDouble() << " " << split.value().toDouble() << " " << currency.name() << " " << currencyFraction << " " << roundingMethod;
       split.clearId();
       split.setShares(MyMoneyMoney(split.shares().convertDenominator(currencyFraction, roundingMethod)));
       split.setValue(MyMoneyMoney(split.value().convertDenominator(currencyFraction, roundingMethod)));
+	    qDebug() << "createTransaction2: << " << split.shares().toDouble() << " " << split.value().toDouble();
       t.addSplit(split);
     }
 

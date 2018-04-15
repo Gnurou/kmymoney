@@ -393,6 +393,8 @@ bool Buy::createTransaction(MyMoneyTransaction& t, MyMoneySplit& s0, MyMoneySpli
       s0.setPrice(price);
     }
   }
+  qDebug() << "Price: " << s0.price().toDouble();
+  qDebug() << "Value: " << s0.value().toDouble();
 
   auto feeAccountWidget = dynamic_cast<KMyMoneyCategory*>(haveWidget("fee-account"));
   auto feeAmountWidget = dynamic_cast<KMyMoneyEdit*>(haveWidget("fee-amount"));
@@ -403,6 +405,7 @@ bool Buy::createTransaction(MyMoneyTransaction& t, MyMoneySplit& s0, MyMoneySpli
   createAssetAccountSplit(assetAccountSplit, s0);
 
   MyMoneyMoney total = sumSplits(s0, feeSplits, QList<MyMoneySplit>());
+  qDebug() << "Total: " << total.toDouble();
 
   //  Clear any leftover value from previous Dividend.
   interestSplits.clear();

@@ -760,7 +760,7 @@ void KEquityPriceUpdateDlg::slotReceivedQuote(const QString& _kmmID, const QStri
           }
         }
       }
-      price *= MyMoneyMoney(_price, MyMoneyMoney::precToDenom(toCurrency.pricePrecision()));
+      price = MyMoneyMoney(_price * price.toDouble(), MyMoneyMoney::precToDenom(toCurrency.pricePrecision()));
 
       item->setText(PRICE_COL, price.formatMoney(fromCurrency.tradingSymbol(), toCurrency.pricePrecision()));
       item->setText(DATE_COL, date.toString(Qt::ISODate));
