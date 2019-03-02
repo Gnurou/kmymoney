@@ -33,6 +33,9 @@
 #include <QVBoxLayout>
 #include <QVariant>
 #include <QCheckBox>
+#include <QPainter>
+#include <QPrintDialog>
+#include <QPrinter>
 
 // ----------------------------------------------------------------------------
 // KDE Includes
@@ -113,7 +116,20 @@ KReportsView::KReportTab::~KReportTab()
 
 void KReportsView::KReportTab::print()
 {
-  if (m_part && m_part->view())
+  if (!m_chartView->isHidden()) {
+    QPrinter printer;
+    QPointer<QPrintDialog> dlg = new QPrintDialog(&printer, this);
+    if (dlg->exec()) {
+      QPainter painter(&printer);
+      m_chartView->paint(&painter, painter.window());
+      QFont font = painter.font();
+      font.setPointSizeF(font.pointSizeF() * 0.8);
+      painter.setFont(font);
+      painter.drawText(0, 0, KGlobal::locale()->formatDate(QDate::currentDate(), KLocale::ShortDate));
+      QUrl file(kmymoney->filename());
+      painter.drawText(0, painter.window().height(), file.toLocalFile());
+    }
+  } else if (m_part && m_part->view())
     m_part->view()->print();
 }
 
