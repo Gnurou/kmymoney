@@ -94,6 +94,8 @@ public:
     bool m_showingChart;
     bool m_needReload;
     reports::ReportTable* m_table;
+    class Private;
+    Private* const d;
 
     /**
      * Users character set encoding.
@@ -107,6 +109,7 @@ public:
       return m_report;
     }
     void print();
+    void printPreview();
     void toggleChart();
     void copyToClipboard();
     void saveAs(const QString& filename, bool includeCSS = false);
@@ -214,6 +217,7 @@ public slots:
 
   void slotLoadView();
   void slotPrintView();
+  void slotPrintPreviewView();
   void slotCopyView();
   void slotSaveView();
   void slotConfigure();

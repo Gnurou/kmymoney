@@ -34,6 +34,7 @@
 #include <QVariant>
 #include <QCheckBox>
 #include <QPainter>
+#include <QPrintPreviewDialog>
 #include <QPrintDialog>
 #include <QPrinter>
 
@@ -44,6 +45,7 @@
 #include <khtmlview.h>
 #include <kconfig.h>
 #include <kdebug.h>
+#include <kdeversion.h>
 #include <kfiledialog.h>
 #include <kmessagebox.h>
 
@@ -70,6 +72,38 @@ using namespace reports;
   * KReportsView::KReportTab Implementation
   */
 
+class KReportsView::KReportTab::Private : public QObject
+{
+    Q_OBJECT
+public:
+    KReportsView::KReportTab *q;
+
+    Private(KReportsView::KReportTab *parent) : q(parent) {}
+
+public slots:
+    void slotPrintRequested(QPrinter *printer);
+};
+
+void KReportsView::KReportTab::Private::slotPrintRequested(QPrinter *printer)
+{
+  if (!q->m_chartView->isHidden()) {
+    QPainter painter(printer);
+    int h = painter.fontMetrics().height();
+    q->m_chartView->paint(&painter, QRect(0, 0, printer->pageRect().width(), printer->pageRect().height() - h));
+    QFont font = painter.font();
+    font.setPointSizeF(font.pointSizeF() * 0.8);
+    painter.setFont(font);
+    painter.drawText(0, h, KGlobal::locale()->formatDate(QDate::currentDate(), KLocale::ShortDate));
+    QUrl file(kmymoney->filename());
+    painter.drawText(0, printer->pageRect().height(), file.toLocalFile());
+  } else if (q->m_part && q->m_part->view())
+#if KDE_IS_VERSION(4, 14, 65)
+    q->m_part->view()->print(kmymoney->printer(), true);
+#else
+    q->m_part->view()->print(true);
+#endif
+}
+
 KReportsView::KReportTab::KReportTab(KTabWidget* parent, const MyMoneyReport& report):
     QWidget(parent),
     m_part(new KHTMLPart(this)),
@@ -81,7 +115,8 @@ KReportsView::KReportTab::KReportTab(KTabWidget* parent, const MyMoneyReport& re
     m_chartEnabled(false),
     m_showingChart(false),
     m_needReload(true),
-    m_table(0)
+    m_table(0),
+    d(new Private(this))
 {
   m_layout->setSpacing(6);
   m_part->setFontScaleFactor(KMyMoneyGlobalSettings::fontSizePercentage());
@@ -113,28 +148,28 @@ KReportsView::KReportTab::~KReportTab()
   delete m_table;
   //This is to prevent a crash on exit with KDE 4.3.2
   delete m_part;
+  delete d;
 }
 
 void KReportsView::KReportTab::print()
 {
-  if (!m_chartView->isHidden()) {
-    QPointer<QPrintDialog> dlg = new QPrintDialog(kmymoney->printer(), this);
-    if (dlg->exec()) {
-      QPainter painter(kmymoney->printer());
-      m_chartView->paint(&painter, painter.window());
-      QFont font = painter.font();
-      font.setPointSizeF(font.pointSizeF() * 0.8);
-      painter.setFont(font);
-      painter.drawText(0, 0, KGlobal::locale()->formatDate(QDate::currentDate(), KLocale::ShortDate));
-      QUrl file(kmymoney->filename());
-      painter.drawText(0, painter.window().height(), file.toLocalFile());
-    }
-  } else if (m_part && m_part->view())
-#ifdef Q_OS_WIN
-    m_part->view()->print(kmymoney->printer());
+  QPrintDialog dlg(kmymoney->printer(), this);
+  if (!dlg.exec())
+    return;
+
+  d->slotPrintRequested(kmymoney->printer());
+}
+
+void KReportsView::KReportTab::printPreview()
+{
+#if KDE_IS_VERSION(4, 14, 65)
 #else
-    m_part->view()->print();
+  if (m_chartView->isHidden())
+    return;
 #endif
+  QPrintPreviewDialog dlg(kmymoney->printer(), this);
+  connect(&dlg, SIGNAL(paintRequested(QPrinter*)), d, SLOT(slotPrintRequested(QPrinter*)));
+  dlg.exec();
 }
 
 void KReportsView::KReportTab::copyToClipboard()
@@ -684,6 +719,13 @@ void KReportsView::slotPrintView()
   KReportTab* tab = dynamic_cast<KReportTab*>(m_reportTabWidget->currentWidget());
   if (tab)
     tab->print();
+}
+
+void KReportsView::slotPrintPreviewView()
+{
+  KReportTab* tab = dynamic_cast<KReportTab*>(m_reportTabWidget->currentWidget());
+  if (tab)
+    tab->printPreview();
 }
 
 void KReportsView::slotCopyView()
@@ -1830,3 +1872,5 @@ void KReportsView::restoreTocExpandState(QMap<QString, bool>& expandStates)
 #undef VIEW_WELCOME
 #undef VIEW_HOME
 #undef VIEW_REPORTS
+
+#include "kreportsview.moc"

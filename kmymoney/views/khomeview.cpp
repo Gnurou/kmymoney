@@ -192,6 +192,12 @@ void KHomeView::slotPrintView()
     d->m_part->view()->print();
 }
 
+void KHomeView::slotPrintPreviewView()
+{
+  if (d->m_part && d->m_part->view())
+    d->m_part->view()->print();
+}
+
 void KHomeView::slotZoomView(int delta)
 {
   const int fontScaleStepping = 10;
