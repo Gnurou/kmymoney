@@ -102,6 +102,11 @@ public slots:
     */
   void slotPrintPreviewView();
 
+  /**
+    * Generates a print for a given printer
+    */
+  void slotPaintRequested(QPrinter *printer);
+
   void slotZoomView(int);
 
 signals:

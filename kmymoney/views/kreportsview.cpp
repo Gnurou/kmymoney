@@ -81,10 +81,10 @@ public:
     Private(KReportsView::KReportTab *parent) : q(parent) {}
 
 public slots:
-    void slotPrintRequested(QPrinter *printer);
+    void slotPaintRequested(QPrinter *printer);
 };
 
-void KReportsView::KReportTab::Private::slotPrintRequested(QPrinter *printer)
+void KReportsView::KReportTab::Private::slotPaintRequested(QPrinter *printer)
 {
   if (!q->m_chartView->isHidden()) {
     QPainter painter(printer);
@@ -157,7 +157,7 @@ void KReportsView::KReportTab::print()
   if (!dlg.exec())
     return;
 
-  d->slotPrintRequested(kmymoney->printer());
+  d->slotPaintRequested(kmymoney->printer());
 }
 
 void KReportsView::KReportTab::printPreview()
@@ -168,7 +168,7 @@ void KReportsView::KReportTab::printPreview()
     return;
 #endif
   QPrintPreviewDialog dlg(kmymoney->printer(), this);
-  connect(&dlg, SIGNAL(paintRequested(QPrinter*)), d, SLOT(slotPrintRequested(QPrinter*)));
+  connect(&dlg, SIGNAL(paintRequested(QPrinter*)), d, SLOT(slotPaintRequested(QPrinter*)));
   dlg.exec();
 }
 
